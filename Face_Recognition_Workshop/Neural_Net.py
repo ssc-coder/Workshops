@@ -8,14 +8,16 @@ class Neural:
     def __init__(self, 
                  input_size, # size of the picture we will be working with
                  learning_rate = 0.875, # used for a supervised learning process called [Gradient Descent]
-                 loops = 200): # number of loops to run our training
+                 loops = 200,
+                 batch_size = 32): # number of loops to run our training
         self.Weights = np.random.randn(input_size)
         self.Bias = 1
         self.loops = loops # formally known as epochs for each loop through training data
         self.learning_rate = learning_rate
+        self.batch_size = batch_size
 
     def activation_function(self, x):
-        return 1 if x >= 0 else 0 # represents the activation of a neuron to send this information to the next layer or give an output
+        return 1 / (1 + np.exp(-x))
     
     def prediction(self, input):
         # basic prediction method: this method does not work well enough in python as this causes overflows when conducting the sums
@@ -29,7 +31,7 @@ class Neural:
         return self.activation_function(np.dot(input, self.Weights) + self.Bias)
     
     def get_accuracy(self, predictions, labels):
-        np.mean(predictions == labels)
+        return np.mean(predictions == labels) * 100
 
     def train_Neural_Net(self, img_train_list, train_ans_key, img_Test, test_ans_key):
         # Supervised learning process starts here
@@ -37,15 +39,19 @@ class Neural:
         for loop in range(self.loops):
             # shuffle the data along with the answers to provide a better testing environment and avoid overfitting based on routine
             img_train_list, train_ans_key = self.shuffle_data(img_train_list, train_ans_key) 
-            for img in range(len(img_train_list)):
-                input = img_train_list[img].flatten() # flatten the matrix of input values before predicting it with our array
-                output = self.prediction(input)
-                update = self.learning_rate * (train_ans_key[img] - output)
-                self.Weights += update * input
-                self.Bias += update
-            accuracy = self.test_Neural_Net(img_Test, test_ans_key)
-            if max_accuracy > accuracy:
-                print(f'Epoch {loop + 1}, Validation Accuracy: {accuracy:.2f}')
+            for batch_start in range(0, len(img_train_list), self.batch_size):
+                batch_input = img_train_list[batch_start:batch_start+self.batch_size]
+                batch_labels = train_ans_key[batch_start:batch_start+self.batch_size]
+                for img in range(len(batch_input)):
+                    input = batch_input[img].flatten()
+                    output = self.prediction(input)
+                    update = self.learning_rate * (batch_labels[img] - output)
+                    self.Weights += update * input
+                    self.Bias += update
+        accuracy = self.test_Neural_Net(img_Test, test_ans_key)
+        if max_accuracy < accuracy:
+            max_accuracy = accuracy
+            print(f'Epoch {loop + 1}, Validation Accuracy: {accuracy:.2f}')
     
     def shuffle_data(self, img_data, labels):
         indices = np.arange(img_data.shape[0])
@@ -56,6 +62,7 @@ class Neural:
     def test_Neural_Net(self, test_img_data, test_labels):
         predictions = [self.prediction(img.flatten()) for img in test_img_data]
         accuracy = np.mean([predict == ans for predict, ans in zip(predictions, test_labels)])
+        print(f"Training epoch {loop + 1} of {self.loops}")
         return accuracy
     
     def test_image(self, test_img_data, test_label):
